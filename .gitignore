@@ -1,0 +1,14 @@
+# Binaries
+**/bin/
+
+#Debug
+OpenGL/Debug/*
+Debug/*
+
+# Visual Studio files and folder
+.vs/
+
+#**.sln
+#**.vcxproj
+#**.vcxproj.filters
+#**.vcxproj.user
