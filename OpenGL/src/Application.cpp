@@ -2,22 +2,8 @@
 #include <iostream>
 #include<glad/glad.h>
 #include<GLFW/glfw3.h>
+#include"Shader.h"
 
-const char* vertexShaderSource =
-"#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"void main()\n"
-"{\n"
-"	gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-"}\0";
-
-const char* fragmentShaderSource =
-"#version 330 core\n"
-"out vec4 color;\n"
-"void main()\n"
-"{\n"
-"	color = vec4(0.8, 0.2, 0.3, 1.0);\n"
-"}\0";
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
@@ -30,56 +16,6 @@ void ProcessInput(GLFWwindow* window)
 	{
 		glfwSetWindowShouldClose(window, true);
 	}
-}
-
-unsigned int CreateShaderProgram()
-{
-	//Compile vertex shader
-	unsigned int vertexShader;
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-	glCompileShader(vertexShader); // If fails OpenGL not cause any error. We must query how it´s the compilation state
-	//vertexShader error checks
-	int success;
-	char infoLog[512]; //Could be optimized asking for log size
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success); // return 0 if any issue with compilation
-	if (success == GL_FALSE)
-	{
-		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-		std::cout << "ERROR ON VERTEX SHADER COMPILATION: " << infoLog << std::endl;
-	}
-
-	//Compile fragment shader
-	unsigned int fragmentShader;
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-	glCompileShader(fragmentShader);
-
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-	if (success == GL_FALSE)
-	{
-		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-		std::cout << "ERROR ON FRAGMENT SHADER COMPILATION: " << infoLog << std::endl;
-	}
-
-	//Create shader program
-	unsigned int shaderProgram;
-	shaderProgram = glCreateProgram();
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
-	glLinkProgram(shaderProgram); // If fails OpenGL not cause any error. We must query how it´s the linking state
-	//Shader linking error checks
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-	if (success == GL_FALSE)
-	{
-		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-		std::cout << "ERROR ON SHADER LINKING: " << infoLog << std::endl;
-	}
-	//Once shader program it´s create free shader objects
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
-
-	return shaderProgram;
 }
 
 int main(void)
@@ -174,10 +110,10 @@ int main(void)
 	glBindVertexArray(0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	
-	// Generate shader
-	unsigned int shader = CreateShaderProgram();
-	// Binding shader to use when draw call 
-	glUseProgram(shader);
+	
+	Shader shader =  Shader("res/shaders/BasicShader.shader");
+	shader.Bind();
+	shader.SetUniform4f("color", 0.8f, 0.2f, 0.3f, 1.0f);
 
 	// Game loop
 	while (!glfwWindowShouldClose(window))
