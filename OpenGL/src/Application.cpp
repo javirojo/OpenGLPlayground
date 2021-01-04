@@ -1,8 +1,9 @@
-#include<stdio.h>
+#include <stdio.h>
 #include <iostream>
-#include<glad/glad.h>
-#include<GLFW/glfw3.h>
-#include"Shader.h"
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include "stb_image.h"
+#include "Shader.h"
 
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -20,8 +21,8 @@ void ProcessInput(GLFWwindow* window)
 
 int main(void)
 {
-	const int height = 800;
-	const int width = 600;
+	const int windowHeight = 800;
+	const int windowWidth = 600;
 
 	glfwInit();
 
@@ -36,7 +37,7 @@ int main(void)
 #endif
 
 	// Create window and set context
-	GLFWwindow* window = glfwCreateWindow(height, width, "OpenGL playground", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(windowHeight, windowWidth, "OpenGL playground", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW windows " << std::endl;
@@ -57,17 +58,18 @@ int main(void)
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
 	// Set OpenGL viewport. This will be where OpenGL renders with respect to windows. First point is lower left corner
-	glViewport(0, 0, height, width);
+	glViewport(0, 0, windowHeight, windowWidth);
 
 	// Callback for window resize. OnResize we update glViewport
 	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 
 
 	float vertices[] = {
-		 0.5f,  0.5f, 0.0f,  // top right
-		 0.5f, -0.5f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f,  // bottom left
-		-0.5f,  0.5f, 0.0f   // top left 
+		// positions          // colors           // texture coords
+		0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+		0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+	   -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
+	   -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left 
 	};
 
 	unsigned int indices[] = {
@@ -101,19 +103,59 @@ int main(void)
 
 	// Set Vertex Attributes. 
 	// In this case we configure position information and set in layout position 0. It must match which shader
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
+
+	// Color
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	// Texture
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
 	// Unbind Array buffer as information persist in VAO
 	// Note that VAO it´s unbind before EBO in order to keep correctly configured
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	
-	
-	Shader shader =  Shader("res/shaders/BasicShader.shader");
+
+	// Texture 	
+	// Create texture object
+	unsigned int texture;
+	glGenTextures(1, &texture);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	// Configure texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Loading data 
+	stbi_set_flip_vertically_on_load(true);
+	int width, height, nrChannels;
+	unsigned char* textureData = stbi_load("res/textures/container.jpg", &width, &height, &nrChannels, 0);
+	if (textureData)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Error on loading texture" << std::endl;
+	}
+
+	stbi_image_free(textureData);
+
+	// Shader config
+	Shader shader = Shader("res/shaders/BasicShader.shader");
 	shader.Bind();
-	shader.SetUniform4f("color", 0.8f, 0.2f, 0.3f, 1.0f);
+	shader.SetUniform4f("uColor", 0.8f, 0.2f, 0.3f, 1.0f);
+	shader.SetUniform1i("mainTexture", 0);
+
+	
 
 	// Game loop
 	while (!glfwWindowShouldClose(window))
