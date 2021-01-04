@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <iostream>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "stb_image.h"
+#include "glm/glm.hpp"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "Shader.h"
 
 
@@ -149,14 +154,10 @@ int main(void)
 
 	stbi_image_free(textureData);
 
+	
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
-	shader.Bind();
-	shader.SetUniform4f("uColor", 0.8f, 0.2f, 0.3f, 1.0f);
-	shader.SetUniform1i("mainTexture", 0);
-
 	
-
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -169,6 +170,22 @@ int main(void)
 
 		// Wireframe mode 
 		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		// Matrix operations. !!!Order must be translate, rotate and scale!!!
+		// 1. Create identity
+		// 2. Translate
+		// 3. Rotate around Z axis
+		// 4. Scale
+		glm::mat4 trans = glm::mat4(1.0f);
+		trans = glm::translate(trans, glm::vec3(0.5, 0.0, 0.0));
+		trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
+		trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.f));
+
+		// Set shader. Only transform matrix need to be updated but keep it all here until abstraction into material
+		shader.Bind();
+		shader.SetUniform4f("uColor", 1.0f, 1.0f, 1.0f, 1.0f);
+		shader.SetUniform1i("mainTexture", 0);
+		shader.SetUniformMatrix4("transform", trans);
 
 		// Draw call
 		glBindVertexArray(VAO);

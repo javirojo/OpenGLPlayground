@@ -5,12 +5,14 @@ layout(location = 0) in vec4 position;
 layout(location = 1) in vec3 vertexColor;
 layout(location = 2) in vec2 aTextCoord;
 
+uniform mat4 transform;
+
 out vec3 aColor;
 out vec2 uvs;
 
 void main()
 {
-	gl_Position = position;
+	gl_Position = transform * position;
 	aColor = vertexColor;
 	uvs = aTextCoord;
 }
@@ -25,8 +27,6 @@ out vec4 fragColor;
 uniform vec4 uColor;
 uniform sampler2D mainTexture;
 
-
-
 void main()
 {
 	int offsetX = 0;
@@ -39,7 +39,7 @@ void main()
 	Then Multiply in order to tile. Default is 1
 	Only works if GL_REPEAT or GL_MIRRORED_REPEAT*/
 	vec2 uvsEdit = vec2((uvs.x + offsetX) * tileX, (uvs.y + offsetY) * tileY);	
-	fragColor = texture(mainTexture, uvsEdit) ;
+	fragColor = texture(mainTexture, uvsEdit) * uColor;
 	
 	
 } 

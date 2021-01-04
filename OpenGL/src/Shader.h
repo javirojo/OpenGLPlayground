@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <glm/glm.hpp>
 
 enum class ShaderType
 {
@@ -27,6 +28,9 @@ public:
 	void SetUniform1i(const std::string& name, int value);
 	void SetUniform1f(const std::string& name, float value);
 	void SetUniform4f(const std::string& name, float v0, float v1, float v2, float v3);
+	void SetUniformMatrix2(const std::string& name, glm::mat2 &mat);
+	void SetUniformMatrix3(const std::string& name, glm::mat3 &mat);
+	void SetUniformMatrix4(const std::string& name, glm::mat4 &mat);
 	
 
 private:
