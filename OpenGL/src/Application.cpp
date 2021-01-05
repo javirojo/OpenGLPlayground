@@ -64,22 +64,69 @@ int main(void)
 
 	// Set OpenGL viewport. This will be where OpenGL renders with respect to windows. First point is lower left corner
 	glViewport(0, 0, windowHeight, windowWidth);
+	
+	// Enable Depth testing
+	glEnable(GL_DEPTH_TEST);
 
 	// Callback for window resize. OnResize we update glViewport
 	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 
 
 	float vertices[] = {
-		// positions          // colors           // texture coords
-		0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-		0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-	   -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-	   -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left 
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 	};
 
-	unsigned int indices[] = {
-		0, 1, 3,   // first triangle
-		1, 2, 3    // second triangle
+	glm::vec3 cubePositions[] = {
+	glm::vec3(0.0f,  0.0f,  0.0f),
+	glm::vec3(2.0f,  5.0f, -15.0f),
+	glm::vec3(-1.5f, -2.2f, -2.5f),
+	glm::vec3(-3.8f, -2.0f, -12.3f),
+	glm::vec3(2.4f, -0.4f, -3.5f),
+	glm::vec3(-1.7f,  3.0f, -7.5f),
+	glm::vec3(1.3f, -2.0f, -2.5f),
+	glm::vec3(1.5f,  2.0f, -2.5f),
+	glm::vec3(1.5f,  0.2f, -1.5f),
+	glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 
 	// VBO: 
@@ -98,33 +145,20 @@ int main(void)
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
-	// EBO
-	// Important!!! EBO "links" to VAO if VAO is binding and we unbind the EBO, the VAO Wont have and EBO configured and it cause error when drawing indices
-	unsigned int EBO;
-	glGenBuffers(1, &EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-
 	// Set Vertex Attributes. 
-	// In this case we configure position information and set in layout position 0. It must match which shader
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	// Position Attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// Color
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	// Texture Attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
-
-	// Texture
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-	glEnableVertexAttribArray(2);
 
 	// Unbind Array buffer as information persist in VAO
 	// Note that VAO it큦 unbind before EBO in order to keep correctly configured
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
+	
 	// Texture 	
 	// Create texture object
 	unsigned int texture;
@@ -166,30 +200,48 @@ int main(void)
 
 		// Rendering stuff
 		glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
 		// Wireframe mode 
 		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-		// Matrix operations. !!!Order must be translate, rotate and scale!!!
-		// 1. Create identity
-		// 2. Translate
-		// 3. Rotate around Z axis
-		// 4. Scale
-		glm::mat4 trans = glm::mat4(1.0f);
-		trans = glm::translate(trans, glm::vec3(0.5, 0.0, 0.0));
-		trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0, 0.0, 1.0));
-		trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.f));
+		// MVP
+		// Model matrix will be calculated for every cube
+		//glm::mat4 model = glm::rotate(glm::mat4(1.0f), (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
+		
+		// Translate 6 in Z from 0,0 then rotate 90 over X --> Keep in mind that rotation it큦 done from world coordinates
+		// glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -6.0f));	
+		// view = glm::rotate(view, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-		// Set shader. Only transform matrix need to be updated but keep it all here until abstraction into material
+		// In this case first rotate and then move in vertical over the scene. It큦 like view it큦 a camera object and rotation it큦 over it큦 origin
+		// glm::mat4 view = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		// view = glm::translate(view, glm::vec3(0.0f, -6.0f, 0.0f)); 
+		
+		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+		// Projection matrix aspect ratio must be calculated based on window resolution
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+		
+
+		// Set shader. Only MVP matrix need to be updated but keep it all here until abstraction into material
 		shader.Bind();
 		shader.SetUniform4f("uColor", 1.0f, 1.0f, 1.0f, 1.0f);
 		shader.SetUniform1i("mainTexture", 0);
-		shader.SetUniformMatrix4("transform", trans);
+		
+		shader.SetUniformMatrix4("view", view);
+		shader.SetUniformMatrix4("projection", projection);
+		
 
 		// Draw call
 		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		for (unsigned int i = 0; i < 10; i++)
+		{
+			float angle = 20.0f * i;		
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), cubePositions[i]);
+			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+			shader.SetUniformMatrix4("model", model);
+			
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
 
 		// Double buffer
 		glfwSwapBuffers(window);
