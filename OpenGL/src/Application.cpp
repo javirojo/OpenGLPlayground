@@ -9,10 +9,30 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Shader.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+int windowHeight = 720;
+int windowWidth = 1280;
+
+//IMGUI state
+bool show_demo_window = true;
+bool show_another_window = false;
+ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
+ImVec4 u_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+float uOffsetX = 0.0f;
+float uOffsetY = 0.0f;
+float uTileX = 1.0f;
+float uTileY = 1.0f;
 
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
+	// Update values for calculate projection matrix
+	windowHeight = height;
+	windowWidth = width;
+
 	glViewport(0, 0, width, height);
 }
 
@@ -24,11 +44,86 @@ void ProcessInput(GLFWwindow* window)
 	}
 }
 
+void InitIMGUI(GLFWwindow* window)
+{
+	const char* glsl_version = "#version 130";
+	//IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	// Setup Platform/Renderer bindings
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init(glsl_version);
+}
+
+void RenderIMGUI()
+{
+	// Start the Dear ImGui frame
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+
+	//ImGUI shader window
+	{
+		ImGui::Begin("OpenFG Playground");
+
+		ImGui::Text("Shader Parameters");
+		ImGui::Separator();
+
+		ImGui::Text("Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##Color", (float*)&u_color);
+
+		ImGui::Text("uOffsetX");
+		ImGui::SameLine();
+		ImGui::InputFloat("##uOffsetX", &uOffsetX, 0.1f, 1.0f);
+
+		ImGui::Text("uOffsetY");
+		ImGui::SameLine();
+		ImGui::InputFloat("##uOffsetY", &uOffsetY, 0.1f, 0.1f);
+
+
+		ImGui::Text("uTileX");
+		ImGui::SameLine();
+		ImGui::InputFloat("##uTileX", &uTileX, 1.0f, 1.0f);
+
+		ImGui::Text("uTileY");
+		ImGui::SameLine();
+		ImGui::InputFloat("##uTileY", &uTileY, 1.0f, 1.0f);
+		
+		ImGui::Dummy(ImVec2(0.0f, 20.0f));
+		ImGui::Text("Global Parameters");
+		ImGui::Separator();
+
+		ImGui::Text("Clear Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##Clear Color", (float*)&clear_color);
+		ImGui::End();
+	}
+	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+	/*if (show_demo_window)
+	{
+		ImGui::ShowDemoWindow(&show_demo_window);
+	}*/
+	
+	// Rendering IMGUI always at the end in order to render on Top
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+}
+
+void CleanUpIMGUI()
+{
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
 int main(void)
 {
-	const int windowHeight = 800;
-	const int windowWidth = 600;
-
 	glfwInit();
 
 	// Set version of  OpenGL. Default is last supported by GPU
@@ -42,7 +137,7 @@ int main(void)
 #endif
 
 	// Create window and set context
-	GLFWwindow* window = glfwCreateWindow(windowHeight, windowWidth, "OpenGL playground", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight,  "OpenGL playground", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW windows " << std::endl;
@@ -63,7 +158,7 @@ int main(void)
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
 	// Set OpenGL viewport. This will be where OpenGL renders with respect to windows. First point is lower left corner
-	glViewport(0, 0, windowHeight, windowWidth);
+	glViewport(0, 0, windowWidth, windowHeight);
 	
 	// Enable Depth testing
 	glEnable(GL_DEPTH_TEST);
@@ -175,7 +270,7 @@ int main(void)
 	// Loading data 
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, nrChannels;
-	unsigned char* textureData = stbi_load("res/textures/container.jpg", &width, &height, &nrChannels, 0);
+	unsigned char* textureData = stbi_load("res/textures/woodBoxStylized.png", &width, &height, &nrChannels, 0);
 	if (textureData)
 	{
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
@@ -191,6 +286,9 @@ int main(void)
 	
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
+		
+	// IMGUI Initialization & Config
+	InitIMGUI(window);
 	
 	// Game loop
 	while (!glfwWindowShouldClose(window))
@@ -198,10 +296,13 @@ int main(void)
 		// Input handling
 		ProcessInput(window);
 
+		
 		// Rendering stuff
 		glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
+		glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
+
 		// Wireframe mode 
 		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -219,18 +320,22 @@ int main(void)
 		
 		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
 		// Projection matrix aspect ratio must be calculated based on window resolution
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)windowWidth / (float)windowHeight, 0.1f, 100.0f);
 		
 
 		// Set shader. Only MVP matrix need to be updated but keep it all here until abstraction into material
 		shader.Bind();
-		shader.SetUniform4f("uColor", 1.0f, 1.0f, 1.0f, 1.0f);
+		// Color binding based on ImGUi value
+		shader.SetUniform4f("uColor", u_color.x, u_color.y, u_color.z, u_color.w);
+		shader.SetUniform1f("uOffsetX", uOffsetX);
+		shader.SetUniform1f("uOffsetY", uOffsetY);
+		shader.SetUniform1f("uTileX", uTileX);
+		shader.SetUniform1f("uTileY", uTileY);
 		shader.SetUniform1i("mainTexture", 0);
 		
 		shader.SetUniformMatrix4("view", view);
 		shader.SetUniformMatrix4("projection", projection);
 		
-
 		// Draw call
 		glBindVertexArray(VAO);
 		for (unsigned int i = 0; i < 10; i++)
@@ -242,7 +347,9 @@ int main(void)
 			
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
-
+		// Always Render ImGUi at last in order to render in front
+		RenderIMGUI();
+		
 		// Double buffer
 		glfwSwapBuffers(window);
 
@@ -250,8 +357,10 @@ int main(void)
 		glfwPollEvents();
 
 	}
-
+	CleanUpIMGUI();
+	
 	glfwTerminate();
+
 	return 0;
 }
 
