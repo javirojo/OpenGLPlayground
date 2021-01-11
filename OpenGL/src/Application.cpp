@@ -16,10 +16,33 @@
 int windowHeight = 720;
 int windowWidth = 1280;
 
+// Time
+float deltaTime = 0.0f;	// Time between current frame and last frame
+float lastFrame = 0.0f; // Time of last frame
+
+// Camera
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 5.0f);
+glm::vec3 cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+float cameraSpeed = 12.0f; 
+float fov = 45.0f;
+float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
+float pitch = 0.0f;
+float lastMouseX = 360; // Harcoded set middle point based on initial window size
+float lastMouseY = 640; // Harcoded set middle point based on initial window size
+float mouseSensitivity = 0.1f;
+bool mousePressed = false;
+
+glm::mat4 projection;
+
 //IMGUI state
 bool show_demo_window = true;
 bool show_another_window = false;
+
 ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
+
+//Shader uniforms
 ImVec4 u_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 float uOffsetX = 0.0f;
 float uOffsetY = 0.0f;
@@ -38,10 +61,83 @@ void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 
 void ProcessInput(GLFWwindow* window)
 {
+	// Camera movement
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	{
+		cameraPos += cameraSpeed * deltaTime * cameraFront;
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+	{
+		cameraPos -= cameraSpeed * deltaTime * cameraFront;
+	}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+	{
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+	}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) 
+	{
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+	}
+
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, true);
 	}
+}
+
+void MouseCallback(GLFWwindow* window, double xPos, double yPos)
+{
+	// Restart mouse pressed flag. In that way, when press wi get the actual position of mouse as start point to calculate offset
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE)
+	{
+		mousePressed = false;
+	}
+
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+	{
+		// Start camera movement. Set actual pos in order to keep tracking offset
+		if (!mousePressed)
+		{
+			lastMouseX = xPos;
+			lastMouseY = yPos;
+			mousePressed = true;
+		}
+
+		float xOffset = (xPos - lastMouseX) * mouseSensitivity;
+		float yOffset = (lastMouseY - yPos) * mouseSensitivity; // reversed since y-coordinates range from bottom to top
+		
+		lastMouseX = xPos;
+		lastMouseY = yPos;
+
+		yaw += xOffset;
+		pitch += yOffset;
+
+		// Keep pitch value between 90 and -90
+		if (pitch > 89.0f)
+		{
+			pitch = 89.0f;
+		}
+		if (pitch < -89.0f)
+		{
+			pitch = -89.0f;
+		}
+	
+	
+			// Update camera front vector based on new values
+			cameraFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+			cameraFront.y = sin(glm::radians(pitch));
+			cameraFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+			cameraFront = glm::normalize(cameraFront);
+	}	
+}
+
+void ScrollCallback(GLFWwindow* window, double xOfsset, double yOfsset)
+{
+	fov -= (float)yOfsset;
+	if (fov < 1.0f)
+		fov = 1.0f;
+	if (fov > 180.0f)
+		fov = 180.0f;
 }
 
 void InitIMGUI(GLFWwindow* window)
@@ -49,9 +145,10 @@ void InitIMGUI(GLFWwindow* window)
 	const char* glsl_version = "#version 130";
 	//IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
+
+	ImGuiIO& io = ImGui::GetIO(); //(void)io;
 
 	// Setup Platform/Renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -68,7 +165,7 @@ void RenderIMGUI()
 
 	//ImGUI shader window
 	{
-		ImGui::Begin("OpenFG Playground");
+		ImGui::Begin("OpenGL Playground");
 
 		ImGui::Text("Shader Parameters");
 		ImGui::Separator();
@@ -94,13 +191,30 @@ void RenderIMGUI()
 		ImGui::SameLine();
 		ImGui::InputFloat("##uTileY", &uTileY, 1.0f, 1.0f);
 		
+
+		ImGui::Dummy(ImVec2(0.0f, 20.0f));
+		ImGui::Text("Camera");
+		ImGui::Separator();
+		ImGui::Text("Speed");
+		ImGui::SameLine();
+		ImGui::InputFloat("##camSpeed", &cameraSpeed, 0.1f, 0.1f);
+		ImGui::Text("Fov");
+		ImGui::SameLine();
+		ImGui::InputFloat("##fov", &fov, 1.0f, 1.0f);
+		ImGui::Text("Mouse Sensitivity");
+		ImGui::SameLine();
+		ImGui::InputFloat("##mouseSensitivity", &mouseSensitivity, 0.1f, 0.1f);
+		
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
 		ImGui::Text("Global Parameters");
 		ImGui::Separator();
 
+		ImGui::Text("Delta time %f ms", deltaTime * 1000.0f);
+	
 		ImGui::Text("Clear Color");
 		ImGui::SameLine();
 		ImGui::ColorEdit3("##Clear Color", (float*)&clear_color);
+
 		ImGui::End();
 	}
 	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
@@ -154,6 +268,16 @@ int main(void)
 		return -1;
 	}
 
+	// Config mouse input mode
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+	// Callback for window resize. OnResize we update glViewport
+	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
+	// Mouse callback
+	glfwSetCursorPosCallback(window, MouseCallback);
+	//Scroll callback
+	glfwSetScrollCallback(window, ScrollCallback);
+
 	// Print which gl version we're using
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
@@ -162,10 +286,6 @@ int main(void)
 	
 	// Enable Depth testing
 	glEnable(GL_DEPTH_TEST);
-
-	// Callback for window resize. OnResize we update glViewport
-	glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-
 
 	float vertices[] = {
 	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -290,13 +410,23 @@ int main(void)
 	// IMGUI Initialization & Config
 	InitIMGUI(window);
 	
+	// Init camera
+	cameraFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	cameraFront.y = sin(glm::radians(pitch));
+	cameraFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	cameraFront = glm::normalize(cameraFront);
+
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
+		// Delta time
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
 		// Input handling
 		ProcessInput(window);
 
-		
 		// Rendering stuff
 		glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
 		glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -304,23 +434,27 @@ int main(void)
 	
 
 		// Wireframe mode 
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-		// MVP
-		// Model matrix will be calculated for every cube
-		//glm::mat4 model = glm::rotate(glm::mat4(1.0f), (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
-		
-		// Translate 6 in Z from 0,0 then rotate 90 over X --> Keep in mind that rotation it큦 done from world coordinates
-		// glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -6.0f));	
-		// view = glm::rotate(view, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		// Camera calculations in order to create view matrix
+		// We're creating the coordinates system for our camera and the construct loolAt matrix
+		// glm do the work for us. We just need to pass camera position, target position, and up vector
+		// Here are the calculations to recreate vector by ourselves
+		// glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
+		// glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+		// glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
 
-		// In this case first rotate and then move in vertical over the scene. It큦 like view it큦 a camera object and rotation it큦 over it큦 origin
-		// glm::mat4 view = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		// view = glm::translate(view, glm::vec3(0.0f, -6.0f, 0.0f)); 
+		glm::mat4 view;
 		
-		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+		// View based on camera transform. As Hazel engine
+		/*view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 20.0f));
+		view = glm::rotate(view, glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		view = glm::inverse(view);*/
+
 		// Projection matrix aspect ratio must be calculated based on window resolution
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)windowWidth / (float)windowHeight, 0.1f, 100.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(fov), (float)windowWidth / (float)windowHeight, 0.1f, 100.0f);
 		
 
 		// Set shader. Only MVP matrix need to be updated but keep it all here until abstraction into material

@@ -17,8 +17,7 @@ struct ShaderSource
 
 
 class Shader
-{
-	
+{	
 public:
 	Shader(const std::string& filepath);
 	~Shader();
@@ -32,14 +31,12 @@ public:
 	void SetUniformMatrix3(const std::string& name, glm::mat3 &mat);
 	void SetUniformMatrix4(const std::string& name, glm::mat4 &mat);
 	
-
 private:
 	unsigned int m_RendererId;
 
 	ShaderSource ParseShader(const std::string& filepath);
 	unsigned int CreateShader(const std::string& vertexShaderSource, const std::string& fragmentShaderSource);
 	unsigned int CompileShader(ShaderType type, const std::string& source);
-	
 	int GetUniformLocation(const std::string& name);
 };
 
