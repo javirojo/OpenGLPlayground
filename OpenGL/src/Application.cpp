@@ -8,10 +8,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "Shader.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+
+#include "Shader.h"
+#include "FlyCamera.h"
 
 int windowHeight = 720;
 int windowWidth = 1280;
@@ -20,27 +22,27 @@ int windowWidth = 1280;
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 
-// Camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 5.0f);
-glm::vec3 cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-float cameraSpeed = 12.0f; 
-float fov = 45.0f;
-float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
-float pitch = 0.0f;
-float lastMouseX = 360; // Harcoded set middle point based on initial window size
-float lastMouseY = 640; // Harcoded set middle point based on initial window size
+// Input
+float lastMouseX = 0; 
+float lastMouseY = 0; 
 float mouseSensitivity = 0.1f;
 bool mousePressed = false;
 
-glm::mat4 projection;
+// Camera 
+FlyCamera camera (45.0f, windowWidth, windowHeight, 0.1f, 1000.0f);
+
+// Camera editor
+// TODO: Think how to abstract IMgui parameters from classes
+float cameraNearEditor = camera.GetNear();
+float cameraFarEditor = camera.GetFar();
+float cameraFovEditor = camera.GetFov();
+float cameraSpeedEditor = camera.GetCameraSpeed(); 
+glm::vec4 initColor = camera.GetClearColor();
+ImVec4 clearColorEditor = ImVec4(initColor.x, initColor.y, initColor.z, initColor.w);
 
 //IMGUI state
 bool show_demo_window = true;
 bool show_another_window = false;
-
-ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
 
 //Shader uniforms
 ImVec4 u_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -52,10 +54,11 @@ float uTileY = 1.0f;
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
-	// Update values for calculate projection matrix
+	// Update windows size values 
 	windowHeight = height;
 	windowWidth = width;
 
+	camera.SetViewport(width, height);
 	glViewport(0, 0, width, height);
 }
 
@@ -64,19 +67,19 @@ void ProcessInput(GLFWwindow* window)
 	// Camera movement
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 	{
-		cameraPos += cameraSpeed * deltaTime * cameraFront;
+		camera.ProcessKeyboard(CameraMovement::FORWARD, deltaTime);
 	}
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
 	{
-		cameraPos -= cameraSpeed * deltaTime * cameraFront;
+		camera.ProcessKeyboard(CameraMovement::BACKWARD, deltaTime);
 	}
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
 	{
-		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+		camera.ProcessKeyboard(CameraMovement::LEFT, deltaTime);
 	}
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) 
 	{
-		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+		camera.ProcessKeyboard(CameraMovement::RIGHT, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -105,39 +108,18 @@ void MouseCallback(GLFWwindow* window, double xPos, double yPos)
 
 		float xOffset = (xPos - lastMouseX) * mouseSensitivity;
 		float yOffset = (lastMouseY - yPos) * mouseSensitivity; // reversed since y-coordinates range from bottom to top
-		
+
 		lastMouseX = xPos;
 		lastMouseY = yPos;
 
-		yaw += xOffset;
-		pitch += yOffset;
-
-		// Keep pitch value between 90 and -90
-		if (pitch > 89.0f)
-		{
-			pitch = 89.0f;
-		}
-		if (pitch < -89.0f)
-		{
-			pitch = -89.0f;
-		}
-	
-	
-			// Update camera front vector based on new values
-			cameraFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-			cameraFront.y = sin(glm::radians(pitch));
-			cameraFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-			cameraFront = glm::normalize(cameraFront);
+		camera.ProcessMouse(xOffset, yOffset);
 	}	
 }
 
 void ScrollCallback(GLFWwindow* window, double xOfsset, double yOfsset)
 {
-	fov -= (float)yOfsset;
-	if (fov < 1.0f)
-		fov = 1.0f;
-	if (fov > 180.0f)
-		fov = 180.0f;
+	camera.ProcessScrollbar((float)yOfsset);
+	cameraFovEditor = camera.GetFov();	
 }
 
 void InitIMGUI(GLFWwindow* window)
@@ -195,12 +177,42 @@ void RenderIMGUI()
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
 		ImGui::Text("Camera");
 		ImGui::Separator();
-		ImGui::Text("Speed");
+		ImGui::Text("Clear Color");
 		ImGui::SameLine();
-		ImGui::InputFloat("##camSpeed", &cameraSpeed, 0.1f, 0.1f);
+		if (ImGui::ColorEdit3("##Clear Color", (float*)&clearColorEditor))
+		{
+			camera.SetClearColor(glm::vec4(clearColorEditor.x, clearColorEditor.y, clearColorEditor.z, clearColorEditor.w));
+		}
+		
+		ImGui::Text("Near clip plane");
+		ImGui::SameLine();
+		if (ImGui::InputFloat("##nearClipPlane", &cameraNearEditor, 1.0f, 1.0f))
+		{
+			camera.SetNear(cameraNearEditor);
+		}
+
+		ImGui::Text("Far clip plane");
+		ImGui::SameLine();
+		if (ImGui::InputFloat("##farClipPlane", &cameraFarEditor, 1.0f, 1.0f))
+		{
+			camera.SetFar(cameraFarEditor);
+		}
+
 		ImGui::Text("Fov");
 		ImGui::SameLine();
-		ImGui::InputFloat("##fov", &fov, 1.0f, 1.0f);
+		if (ImGui::InputFloat("##fov", &cameraFovEditor, 1.0f, 1.0f))
+		{
+			camera.SetFov(cameraFovEditor);
+		}
+
+		ImGui::Text("Speed");
+		ImGui::SameLine();
+		if (ImGui::InputFloat("##camSpeed", &cameraSpeedEditor, 0.1f, 0.1f))
+		{
+			camera.SetCameraSpeed(cameraSpeedEditor);
+		}
+
+
 		ImGui::Text("Mouse Sensitivity");
 		ImGui::SameLine();
 		ImGui::InputFloat("##mouseSensitivity", &mouseSensitivity, 0.1f, 0.1f);
@@ -211,9 +223,7 @@ void RenderIMGUI()
 
 		ImGui::Text("Delta time %f ms", deltaTime * 1000.0f);
 	
-		ImGui::Text("Clear Color");
-		ImGui::SameLine();
-		ImGui::ColorEdit3("##Clear Color", (float*)&clear_color);
+		
 
 		ImGui::End();
 	}
@@ -281,9 +291,6 @@ int main(void)
 	// Print which gl version we're using
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
-	// Set OpenGL viewport. This will be where OpenGL renders with respect to windows. First point is lower left corner
-	glViewport(0, 0, windowWidth, windowHeight);
-	
 	// Enable Depth testing
 	glEnable(GL_DEPTH_TEST);
 
@@ -403,18 +410,11 @@ int main(void)
 
 	stbi_image_free(textureData);
 
-	
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
 		
 	// IMGUI Initialization & Config
 	InitIMGUI(window);
-	
-	// Init camera
-	cameraFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraFront.y = sin(glm::radians(pitch));
-	cameraFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraFront = glm::normalize(cameraFront);
 
 	// Game loop
 	while (!glfwWindowShouldClose(window))
@@ -428,35 +428,10 @@ int main(void)
 		ProcessInput(window);
 
 		// Rendering stuff
-		glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
-		glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+		glm::vec4 clearColor = camera.GetClearColor();
+		glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-
-		// Wireframe mode 
-		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		// Camera calculations in order to create view matrix
-		// We're creating the coordinates system for our camera and the construct loolAt matrix
-		// glm do the work for us. We just need to pass camera position, target position, and up vector
-		// Here are the calculations to recreate vector by ourselves
-		// glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-		// glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
-		// glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
-
-		glm::mat4 view;
 		
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-		// View based on camera transform. As Hazel engine
-		/*view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 20.0f));
-		view = glm::rotate(view, glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		view = glm::inverse(view);*/
-
-		// Projection matrix aspect ratio must be calculated based on window resolution
-		glm::mat4 projection = glm::perspective(glm::radians(fov), (float)windowWidth / (float)windowHeight, 0.1f, 100.0f);
-		
-
 		// Set shader. Only MVP matrix need to be updated but keep it all here until abstraction into material
 		shader.Bind();
 		// Color binding based on ImGUi value
@@ -466,9 +441,10 @@ int main(void)
 		shader.SetUniform1f("uTileX", uTileX);
 		shader.SetUniform1f("uTileY", uTileY);
 		shader.SetUniform1i("mainTexture", 0);
-		
-		shader.SetUniformMatrix4("view", view);
-		shader.SetUniformMatrix4("projection", projection);
+
+		// Get camera view & projection matrix before render objects
+		shader.SetUniformMatrix4("view", camera.GetViewMatrix());
+		shader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
 		
 		// Draw call
 		glBindVertexArray(VAO);
@@ -491,6 +467,7 @@ int main(void)
 		glfwPollEvents();
 
 	}
+	
 	CleanUpIMGUI();
 	
 	glfwTerminate();

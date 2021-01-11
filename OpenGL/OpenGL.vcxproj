@@ -146,6 +146,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
+    <ClCompile Include="src\FlyCamera.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="vendor\GLAD\src\glad.c" />
     <ClCompile Include="vendor\GLM\glm\detail\glm.cpp" />
@@ -158,6 +159,8 @@
     <ClCompile Include="vendor\STB\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\FlyCamera.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="vendor\GLAD\include\glad\glad.h" />
     <ClInclude Include="vendor\GLAD\include\KHR\khrplatform.h" />
