@@ -44,6 +44,15 @@ ImVec4 clearColorEditor = ImVec4(initColor.x, initColor.y, initColor.z, initColo
 bool show_demo_window = true;
 bool show_another_window = false;
 
+// lighting
+float ambientLightIntensity = 0.1f;
+glm::vec4 ambientLightColor(0.3f, 0.82f, 0.74f, 1.0f);
+
+glm::vec3 cubePos(0.0f, 0.0f, 0.0f);
+glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+
 //Shader uniforms
 ImVec4 u_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 float uOffsetX = 0.0f;
@@ -149,9 +158,11 @@ void RenderIMGUI()
 	{
 		ImGui::Begin("OpenGL Playground");
 
-		ImGui::Text("Shader Parameters");
+		ImGui::Text("Cube Parameters");
 		ImGui::Separator();
-
+		ImGui::Text("Position");
+		ImGui::SameLine();
+		ImGui::DragFloat3("##cubePosition", (float*)&cubePos);
 		ImGui::Text("Color");
 		ImGui::SameLine();
 		ImGui::ColorEdit3("##Color", (float*)&u_color);
@@ -173,6 +184,28 @@ void RenderIMGUI()
 		ImGui::SameLine();
 		ImGui::InputFloat("##uTileY", &uTileY, 1.0f, 1.0f);
 		
+		ImGui::Dummy(ImVec2(0.0f, 20.0f));
+		ImGui::Text("Lightning");
+		ImGui::Separator();
+		ImGui::Text("AMBIENT LIGHT");
+		ImGui::Dummy(ImVec2(0.0f, 5.0f));
+		ImGui::Text("Ambient light Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##ambientLightColor", (float*)&ambientLightColor);
+		ImGui::Text("Ambient light intensity");
+		ImGui::SameLine();
+		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity);
+		
+		ImGui::Dummy(ImVec2(0.0f, 10.0f));
+		ImGui::Text("POINT LIGHT");
+		ImGui::Dummy(ImVec2(0.0f, 5.0f));
+		ImGui::Text("Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##LightColor", (float*)&lightColor);
+		ImGui::Text("Position");
+		ImGui::SameLine();
+		ImGui::DragFloat3("##LightPosition", (float*)&lightPos);
+
 
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
 		ImGui::Text("Camera");
@@ -338,19 +371,6 @@ int main(void)
 	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 	};
 
-	glm::vec3 cubePositions[] = {
-	glm::vec3(0.0f,  0.0f,  0.0f),
-	glm::vec3(2.0f,  5.0f, -15.0f),
-	glm::vec3(-1.5f, -2.2f, -2.5f),
-	glm::vec3(-3.8f, -2.0f, -12.3f),
-	glm::vec3(2.4f, -0.4f, -3.5f),
-	glm::vec3(-1.7f,  3.0f, -7.5f),
-	glm::vec3(1.3f, -2.0f, -2.5f),
-	glm::vec3(1.5f,  2.0f, -2.5f),
-	glm::vec3(1.5f,  0.2f, -1.5f),
-	glm::vec3(-1.3f,  1.0f, -1.5f)
-	};
-
 	// VBO: 
 	// 1.Create 1 buffer and store ID in VBO. This is a reference to an OpenGL Object 
 	// 2.Binding VBO to array buffer
@@ -360,14 +380,11 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	// VAO: Create and bind
-	// IMPORTANT!!! VAO must be bind before setting Vertex attibutes, as "linking" occurs between VAO and attributes not between VBO and VAO
-	// Keep in mind that each attribute "links" with data in  VBO 
+	// Cube VAO:
 	unsigned int VAO;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
-
-	// Set Vertex Attributes. 
+ 
 	// Position Attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -376,8 +393,16 @@ int main(void)
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
-	// Unbind Array buffer as information persist in VAO
-	// Note that VAO it´s unbind before EBO in order to keep correctly configured
+
+	// Cube VAO:
+	unsigned int LightVAO;
+	glGenVertexArrays(1, &LightVAO);
+	glBindVertexArray(LightVAO);
+
+	// Position Attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	
@@ -412,6 +437,7 @@ int main(void)
 
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
+	Shader plainColorShader = Shader("res/shaders/PlainColorShader.shader");
 		
 	// IMGUI Initialization & Config
 	InitIMGUI(window);
@@ -432,31 +458,42 @@ int main(void)
 		glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		// Set shader. Only MVP matrix need to be updated but keep it all here until abstraction into material
+		glBindVertexArray(VAO);
+
+		//Cube rendering
 		shader.Bind();
-		// Color binding based on ImGUi value
 		shader.SetUniform4f("uColor", u_color.x, u_color.y, u_color.z, u_color.w);
 		shader.SetUniform1f("uOffsetX", uOffsetX);
 		shader.SetUniform1f("uOffsetY", uOffsetY);
 		shader.SetUniform1f("uTileX", uTileX);
 		shader.SetUniform1f("uTileY", uTileY);
 		shader.SetUniform1i("mainTexture", 0);
-
-		// Get camera view & projection matrix before render objects
+		shader.SetUniform4f("uAmbientColor", ambientLightColor.x, ambientLightColor.y, ambientLightColor.z, ambientLightColor.w);
+		shader.SetUniform1f("uAmbientIntensity", ambientLightIntensity);
+		
 		shader.SetUniformMatrix4("view", camera.GetViewMatrix());
 		shader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
 		
-		// Draw call
-		glBindVertexArray(VAO);
-		for (unsigned int i = 0; i < 10; i++)
-		{
-			float angle = 20.0f * i;		
-			glm::mat4 model = glm::translate(glm::mat4(1.0f), cubePositions[i]);
-			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-			shader.SetUniformMatrix4("model", model);
-			
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), cubePos);
+		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 0.3f, 0.5f));
+		shader.SetUniformMatrix4("model", model);		
+		
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		// Ligth rendering
+		glBindVertexArray(LightVAO);
+
+		plainColorShader.Bind();
+		plainColorShader.SetUniform4f("uColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
+		plainColorShader.SetUniformMatrix4("view", camera.GetViewMatrix());
+		plainColorShader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
+		
+		glm::mat4 ligthModel = glm::translate(glm::mat4(1.0f), lightPos);
+		ligthModel = glm::scale(ligthModel, glm::vec3(0.2f));
+		plainColorShader.SetUniformMatrix4("model", ligthModel);
+		
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		
 		// Always Render ImGUi at last in order to render in front
 		RenderIMGUI();
 		

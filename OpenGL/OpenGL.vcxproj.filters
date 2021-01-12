@@ -1361,6 +1361,7 @@
     <None Include="vendor\GLM\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="res\shaders\PlainColorShader.shader" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\textures\container.jpg">

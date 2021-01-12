@@ -29,15 +29,24 @@ uniform float uOffsetY;
 uniform float uTileX;
 uniform float uTileY;
 
+//LIGHT
+uniform vec4 uAmbientColor;
+uniform float uAmbientIntensity;
+
 
 void main()
 {
+	//Light contribution (Phong) = ambient + diffuse + specular
+	vec4 ambientComponent = uAmbientColor * uAmbientIntensity;
+
+	vec4 lightTotal = ambientComponent;
+
 	/* Texture tiling & offset
 	Add value between 0 & 1 in order to offset texture. Default is 0
 	Then Multiply in order to tile. Default is 1
 	Only works if GL_REPEAT or GL_MIRRORED_REPEAT*/
 	vec2 uvsEdit = vec2((uvs.x + uOffsetX) * uTileX, (uvs.y + uOffsetY) * uTileY);
-	fragColor = texture(mainTexture, uvsEdit) * uColor;
+	fragColor = texture(mainTexture, uvsEdit) * uColor * lightTotal;
 	
 	
 } 
