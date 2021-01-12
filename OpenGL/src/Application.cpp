@@ -48,9 +48,14 @@ bool show_another_window = false;
 float ambientLightIntensity = 0.1f;
 glm::vec4 ambientLightColor(0.3f, 0.82f, 0.74f, 1.0f);
 
-glm::vec3 cubePos(0.0f, 0.0f, 0.0f);
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
+float lightIntensity = 1.0f;
+
+glm::vec4 specularColor(0.0f, 1.0f, 0.0f, 1.0f);
+float specularShininess = 64.0f;
+
+glm::vec3 cubePos(0.0f, 0.6f, 0.0f);
 
 
 //Shader uniforms
@@ -59,6 +64,7 @@ float uOffsetX = 0.0f;
 float uOffsetY = 0.0f;
 float uTileX = 1.0f;
 float uTileY = 1.0f;
+bool blinn = true;
 
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -167,6 +173,15 @@ void RenderIMGUI()
 		ImGui::SameLine();
 		ImGui::ColorEdit3("##Color", (float*)&u_color);
 
+		ImGui::Text("Specular color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##specularColor", (float*)&specularColor);
+		ImGui::Text("Specular shininess");
+		ImGui::SameLine();
+		ImGui::DragFloat("##specularShininess", (float*)&specularShininess, 1.0f, 2.0f, 1024.0f);
+
+		ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
 		ImGui::Text("uOffsetX");
 		ImGui::SameLine();
 		ImGui::InputFloat("##uOffsetX", &uOffsetX, 0.1f, 1.0f);
@@ -187,6 +202,12 @@ void RenderIMGUI()
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
 		ImGui::Text("Lightning");
 		ImGui::Separator();
+
+		ImGui::Text("Blinn");
+		ImGui::SameLine();
+		ImGui::Checkbox("##blinn", &blinn);
+
+		ImGui::Dummy(ImVec2(0.0f, 5.0f));
 		ImGui::Text("AMBIENT LIGHT");
 		ImGui::Dummy(ImVec2(0.0f, 5.0f));
 		ImGui::Text("Ambient light Color");
@@ -194,7 +215,7 @@ void RenderIMGUI()
 		ImGui::ColorEdit3("##ambientLightColor", (float*)&ambientLightColor);
 		ImGui::Text("Ambient light intensity");
 		ImGui::SameLine();
-		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity);
+		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity, 0.1f, 0.1f, 10.0f);
 		
 		ImGui::Dummy(ImVec2(0.0f, 10.0f));
 		ImGui::Text("POINT LIGHT");
@@ -205,8 +226,11 @@ void RenderIMGUI()
 		ImGui::Text("Position");
 		ImGui::SameLine();
 		ImGui::DragFloat3("##LightPosition", (float*)&lightPos);
-
-
+		ImGui::Text("Light intensity");
+		ImGui::SameLine();
+		ImGui::DragFloat("##lightIntensity", (float*)&lightIntensity, 0.1f, 0.1f, 10.0f);
+		
+		
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
 		ImGui::Text("Camera");
 		ImGui::Separator();
@@ -328,47 +352,48 @@ int main(void)
 	glEnable(GL_DEPTH_TEST);
 
 	float vertices[] = {
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+		// positions          // normals           // texture coords
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   1.0f, 1.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,   0.0f, 0.0f,
 
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
 	};
 
 	// VBO: 
@@ -386,12 +411,16 @@ int main(void)
 	glBindVertexArray(VAO);
  
 	// Position Attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// Texture Attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	// Normal Attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
+
+	// Texture Attribute
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
 
 	// Cube VAO:
@@ -400,18 +429,17 @@ int main(void)
 	glBindVertexArray(LightVAO);
 
 	// Position Attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	
-	// Texture 	
-	// Create texture object
-	unsigned int texture;
-	glGenTextures(1, &texture);
+	// Diffuse Texture 	
+	unsigned int diffuseTexture;
+	glGenTextures(1, &diffuseTexture);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	glBindTexture(GL_TEXTURE_2D, diffuseTexture);
 
 	// Configure texture parameters
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -422,10 +450,10 @@ int main(void)
 	// Loading data 
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, nrChannels;
-	unsigned char* textureData = stbi_load("res/textures/woodBoxStylized.png", &width, &height, &nrChannels, 0);
+	unsigned char* textureData = stbi_load("res/textures/container2.png", &width, &height, &nrChannels, 0);
 	if (textureData)
 	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	else
@@ -433,11 +461,87 @@ int main(void)
 		std::cout << "Error on loading texture" << std::endl;
 	}
 
+	// Create texture object
+	unsigned int specularTexture;
+	glGenTextures(1, &specularTexture);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, specularTexture);
+
+	// Configure texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Loading data 
+	int widthSpec, heightSpec, nrChannelsSpec;
+	unsigned char* textureSpecData = stbi_load("res/textures/container2_specular.png", &widthSpec, &heightSpec, &nrChannelsSpec, 0);
+	if (textureSpecData)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, widthSpec, heightSpec, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureSpecData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Error on loading specular texture" << std::endl;
+	}
+
+	// Loading data 
+	unsigned int planeTexture;
+	glGenTextures(1, &planeTexture);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, planeTexture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	int widthPlane, heightPlane, nrChannelsPlane;
+	unsigned char* texturePlaneData = stbi_load("res/textures/wood.png", &widthPlane, &heightPlane, &nrChannelsPlane, 0);
+	if (texturePlaneData)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, widthPlane, heightPlane, 0, GL_RGB, GL_UNSIGNED_BYTE, texturePlaneData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Error on loading plane texture" << std::endl;
+	}
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// Loading data 
+	unsigned int whiteTexture;
+	glGenTextures(1, &whiteTexture);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, whiteTexture);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	int widthWhite, heightWidth, nrChannelsWhite;
+	unsigned char* textureWhiteData = stbi_load("res/textures/wood.png", &widthWhite, &heightWidth, &nrChannelsWhite, 0);
+	if (textureWhiteData)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, widthWhite, heightWidth, 0, GL_RGB, GL_UNSIGNED_BYTE, textureWhiteData);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Error on loading white texture" << std::endl;
+	}
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 	stbi_image_free(textureData);
+	stbi_image_free(textureWhiteData);
+	stbi_image_free(texturePlaneData);
+	stbi_image_free(textureSpecData);
 
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
-	Shader plainColorShader = Shader("res/shaders/PlainColorShader.shader");
+	Shader lightCasterShader = Shader("res/shaders/PlainColorShader.shader");
 		
 	// IMGUI Initialization & Config
 	InitIMGUI(window);
@@ -461,36 +565,67 @@ int main(void)
 		glBindVertexArray(VAO);
 
 		//Cube rendering
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, diffuseTexture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, specularTexture);
 		shader.Bind();
+		shader.SetUniform1i("blinn", blinn);
 		shader.SetUniform4f("uColor", u_color.x, u_color.y, u_color.z, u_color.w);
 		shader.SetUniform1f("uOffsetX", uOffsetX);
 		shader.SetUniform1f("uOffsetY", uOffsetY);
 		shader.SetUniform1f("uTileX", uTileX);
 		shader.SetUniform1f("uTileY", uTileY);
-		shader.SetUniform1i("mainTexture", 0);
+		shader.SetUniform1i("diffuseTexture", 0);
+		shader.SetUniform1i("specularTexture", 1);
+
 		shader.SetUniform4f("uAmbientColor", ambientLightColor.x, ambientLightColor.y, ambientLightColor.z, ambientLightColor.w);
 		shader.SetUniform1f("uAmbientIntensity", ambientLightIntensity);
+		// TODO: Light color
+		shader.SetUniform3f("uLightPosition", lightPos.x, lightPos.y, lightPos.z);
+		shader.SetUniform4f("uLightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
+		shader.SetUniform1f("uLightIntensity", lightIntensity);
+		shader.SetUniform4f("uSpecularColor", specularColor.x, specularColor.y, specularColor.z, specularColor.w);	
+		shader.SetUniform1f("uSpecularShininess", specularShininess);
+		shader.SetUniform3f("uViewPosition",camera.GetPosition());
 		
 		shader.SetUniformMatrix4("view", camera.GetViewMatrix());
 		shader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
 		
 		glm::mat4 model = glm::translate(glm::mat4(1.0f), cubePos);
-		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 0.3f, 0.5f));
-		shader.SetUniformMatrix4("model", model);		
+		shader.SetUniformMatrix4("model", model);
+		// Normal matrix calculated in world space and passed as uniform to avoid recaculate in each pixel shader
+		glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
+		shader.SetUniformMatrix4("normalMatrix", normalMatrix);
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 		
+		//Plane
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, planeTexture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, whiteTexture);
+		shader.SetUniform1f("uTileX", 5.0f);
+		shader.SetUniform1f("uTileY", 5.0f);
+		glm::mat4 planeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		planeModel = glm::scale(planeModel, glm::vec3(10.5f, 0.1f, 10.0f));
+		shader.SetUniformMatrix4("model", planeModel);
+		glm::mat4 planeNormalMatrix = glm::transpose(glm::inverse(model));
+		shader.SetUniformMatrix4("normalMatrix", normalMatrix);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 		// Ligth rendering
 		glBindVertexArray(LightVAO);
 
-		plainColorShader.Bind();
-		plainColorShader.SetUniform4f("uColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
-		plainColorShader.SetUniformMatrix4("view", camera.GetViewMatrix());
-		plainColorShader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
+		lightCasterShader.Bind();
+		lightCasterShader.SetUniform4f("uLightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
+		lightCasterShader.SetUniform1f("uLightIntensity", lightIntensity);
+		lightCasterShader.SetUniformMatrix4("view", camera.GetViewMatrix());
+		lightCasterShader.SetUniformMatrix4("projection", camera.GetProjectionMatrix());
 		
 		glm::mat4 ligthModel = glm::translate(glm::mat4(1.0f), lightPos);
 		ligthModel = glm::scale(ligthModel, glm::vec3(0.2f));
-		plainColorShader.SetUniformMatrix4("model", ligthModel);
+		lightCasterShader.SetUniformMatrix4("model", ligthModel);
 		
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		

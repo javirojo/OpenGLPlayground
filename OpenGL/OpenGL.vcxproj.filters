@@ -1376,5 +1376,11 @@
     <Image Include="res\textures\woodBoxStylized.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\textures\wood.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\textures\defaultWhite.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

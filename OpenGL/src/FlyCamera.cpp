@@ -5,6 +5,11 @@
 FlyCamera::FlyCamera(float fov, float viewportWidth, float viewportHeight, float nearClip, float FarClip)
 	:m_fov(fov), m_viewportWidth(viewportWidth), m_viewportHeight(viewportHeight), m_nearClip(nearClip), m_farClip(FarClip)
 {
+	//Hardcoded default transform
+	m_yaw = -120.0f;
+	m_pitch = -30.0f;
+	m_cameraPosition = glm::vec3(2.0f, 4.0f, 8.0f);
+
 	m_projectionMatrix = glm::perspective(glm::radians(m_fov), m_viewportWidth / m_viewportHeight, m_nearClip, m_farClip);
 	UpdateViewMatrix();
 }

@@ -12,7 +12,10 @@ class FlyCamera: public Camera
 {
 public:
 	FlyCamera(float fov, float viewportWidth, float viewportHeight, float nearClip, float FarClip);
-		
+	
+	// TODO: extract to Camera when transform component defined
+	inline glm::vec3 GetPosition() { return m_cameraPosition;  }
+	
 	void SetViewport(float viewportWidth, float viewportHeight);
 	inline float GetFov() const { return m_fov; }
 	void SetFov( float fov);
@@ -40,7 +43,7 @@ private:
 	float m_nearClip = 0.1f;
 	float m_farClip = 1000.0f;
 
-	glm::vec3 m_cameraPosition = glm::vec3(0.0f, 0.0f, 5.0f);
+	glm::vec3 m_cameraPosition = glm::vec3(0.0f, 1.0f, 5.0f);
 	glm::vec3 m_cameraDirection = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 m_cameraUp = glm::vec3(0.0f, 0.0f, 0.0f); 
 	glm::vec3 m_cameraRight = glm::vec3(0.0f, 0.0f, 0.0f); 
