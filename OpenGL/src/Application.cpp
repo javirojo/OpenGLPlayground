@@ -14,6 +14,7 @@
 
 #include "Shader.h"
 #include "FlyCamera.h"
+#include "Texture.h"
 
 int windowHeight = 720;
 int windowWidth = 1280;
@@ -435,110 +436,12 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	
-	// Diffuse Texture 	
-	unsigned int diffuseTexture;
-	glGenTextures(1, &diffuseTexture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, diffuseTexture);
-
-	// Configure texture parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Loading data 
-	stbi_set_flip_vertically_on_load(true);
-	int width, height, nrChannels;
-	unsigned char* textureData = stbi_load("res/textures/container2.png", &width, &height, &nrChannels, 0);
-	if (textureData)
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Error on loading texture" << std::endl;
-	}
-
-	// Create texture object
-	unsigned int specularTexture;
-	glGenTextures(1, &specularTexture);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, specularTexture);
-
-	// Configure texture parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Loading data 
-	int widthSpec, heightSpec, nrChannelsSpec;
-	unsigned char* textureSpecData = stbi_load("res/textures/container2_specular.png", &widthSpec, &heightSpec, &nrChannelsSpec, 0);
-	if (textureSpecData)
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, widthSpec, heightSpec, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureSpecData);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Error on loading specular texture" << std::endl;
-	}
-
-	// Loading data 
-	unsigned int planeTexture;
-	glGenTextures(1, &planeTexture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, planeTexture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	int widthPlane, heightPlane, nrChannelsPlane;
-	unsigned char* texturePlaneData = stbi_load("res/textures/wood.png", &widthPlane, &heightPlane, &nrChannelsPlane, 0);
-	if (texturePlaneData)
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, widthPlane, heightPlane, 0, GL_RGB, GL_UNSIGNED_BYTE, texturePlaneData);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Error on loading plane texture" << std::endl;
-	}
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	// Loading data 
-	unsigned int whiteTexture;
-	glGenTextures(1, &whiteTexture);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, whiteTexture);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	int widthWhite, heightWidth, nrChannelsWhite;
-	unsigned char* textureWhiteData = stbi_load("res/textures/wood.png", &widthWhite, &heightWidth, &nrChannelsWhite, 0);
-	if (textureWhiteData)
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, widthWhite, heightWidth, 0, GL_RGB, GL_UNSIGNED_BYTE, textureWhiteData);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Error on loading white texture" << std::endl;
-	}
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	stbi_image_free(textureData);
-	stbi_image_free(textureWhiteData);
-	stbi_image_free(texturePlaneData);
-	stbi_image_free(textureSpecData);
-
+	// Texture loading
+	Texture cubeDifusse = Texture("res/textures/container2.png", TextureType::T2D, true);
+	Texture cubeSpecular = Texture("res/textures/container2_specular.png", TextureType::T2D, true);
+	Texture floorDiffuse = Texture("res/textures/wood.png", TextureType::T2D, true);
+	Texture whiteDefault = Texture("res/textures/defaultWhite.jpg", TextureType::T2D, true);
+	
 	// Shader config
 	Shader shader = Shader("res/shaders/BasicShader.shader");
 	Shader lightCasterShader = Shader("res/shaders/PlainColorShader.shader");
@@ -564,11 +467,10 @@ int main(void)
 		
 		glBindVertexArray(VAO);
 
-		//Cube rendering
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, diffuseTexture);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, specularTexture);
+		//Cube rendering	
+		cubeDifusse.Bind();
+		cubeSpecular.Bind(1);
+		
 		shader.Bind();
 		shader.SetUniform1i("blinn", blinn);
 		shader.SetUniform4f("uColor", u_color.x, u_color.y, u_color.z, u_color.w);
@@ -581,7 +483,7 @@ int main(void)
 
 		shader.SetUniform4f("uAmbientColor", ambientLightColor.x, ambientLightColor.y, ambientLightColor.z, ambientLightColor.w);
 		shader.SetUniform1f("uAmbientIntensity", ambientLightIntensity);
-		// TODO: Light color
+		
 		shader.SetUniform3f("uLightPosition", lightPos.x, lightPos.y, lightPos.z);
 		shader.SetUniform4f("uLightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
 		shader.SetUniform1f("uLightIntensity", lightIntensity);
@@ -601,10 +503,9 @@ int main(void)
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		
 		//Plane
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, planeTexture);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, whiteTexture);
+		floorDiffuse.Bind(0);
+		whiteDefault.Bind(1);
+
 		shader.SetUniform1f("uTileX", 5.0f);
 		shader.SetUniform1f("uTileY", 5.0f);
 		glm::mat4 planeModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
