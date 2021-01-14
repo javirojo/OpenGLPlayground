@@ -41,12 +41,24 @@ uniform float uTileX;
 uniform float uTileY;
 
 //LIGHT
+struct DirectionalLight {
+	 vec4 lightColor;
+	 vec3 lightDirection;
+	 float lightIntensity;
+};
+
+struct PointLight {
+	vec4 lightColor;
+	vec3 lightPosition;
+	float lightIntensity;
+	vec3 attenuationConstant;
+};
+
+uniform DirectionalLight uDirectionalLight;
+uniform PointLight uPointLight;
+
 uniform vec4 uAmbientColor;
 uniform float uAmbientIntensity;
-
-uniform vec4 uLightColor;
-uniform vec3 uLightPosition;
-uniform float uLightIntensity;
 
 uniform vec3 uViewPosition;
 uniform vec4 uSpecularColor;
@@ -54,44 +66,95 @@ uniform float uSpecularShininess;
 
 uniform bool blinn;
 
-void main()
+float Saturate(float value)
 {
-	/* Texture tiling & offset
-	Add value between 0 & 1 in order to offset texture. Default is 0
-	Then Multiply in order to tile. Default is 1
-	Only works if GL_REPEAT or GL_MIRRORED_REPEAT*/
-	vec2 uvsEdit = vec2((uvs.x + uOffsetX) * uTileX, (uvs.y + uOffsetY) * uTileY);
+	return clamp(value, 0.0, 1.0);
+}
 
-	//Light contribution (Phong) = ambient + diffuse + specular
-	vec4 ambientComponent = texture(diffuseTexture, uvsEdit) *  uAmbientColor * uAmbientIntensity;
-
+vec4 PointLightCalc(vec2 uvs)
+{	
+	//Attenuation
+	// Based on Eric Lengyel's Game engine development Vol 2 Smooth Attenuation Equation
+	float distance = length(uPointLight.lightPosition - fragPos);
+	float distance2 = distance * distance;
+	// Constants in vec3 attenuationConstant are 1/Rmax^2, 2/Rmax, R
+	// Attenuation goes from 1 to 0 at Rmax. Then start to grow so we must set to 0 if R > Rmax	
+	float attenuation = (distance2 * uPointLight.attenuationConstant.x * (sqrt(distance2) * uPointLight.attenuationConstant.y - 3.0) + 1);
+	// Distance > Range --> attenuation = 0;
+	attenuation = attenuation * int(uPointLight.attenuationConstant.z > distance);
+	
+	// Ambient
+	vec4 ambientComponent = texture(diffuseTexture, uvs) * uAmbientColor * uAmbientIntensity * attenuation;
+	
 	// Diffuse
 	vec3 norm = normalize(normal);
-	vec3 lightDir = normalize(uLightPosition - fragPos);
+	vec3 lightDir = normalize(uPointLight.lightPosition - fragPos);
 	float diffuseAmount = max(dot(norm, lightDir), 0.0);
-	vec4 diffuseComponent = texture(diffuseTexture, uvsEdit) * diffuseAmount * uLightColor * uLightIntensity;
+	vec4 diffuseComponent = texture(diffuseTexture, uvs) * diffuseAmount * uPointLight.lightColor * uPointLight.lightIntensity * attenuation;
 
 	//Specular
 	// use if Phong model
-	vec3 reflectLight = reflect(-lightDir, norm); 
+	vec3 reflectLight = reflect(-lightDir, norm);
 	vec3 viewDir = normalize(uViewPosition - fragPos);
 	vec3 halfwayDir = normalize(viewDir + lightDir);
 	float specularAmount = 0;
 	if (blinn)
 	{
-		 specularAmount = pow(max(dot(normal, halfwayDir), 0.0), uSpecularShininess);
+		specularAmount = pow(max(dot(normal, halfwayDir), 0.0), uSpecularShininess);
 	}
 	else
 	{
-		 specularAmount = pow(max(dot(viewDir, reflectLight), 0.0), uSpecularShininess);
+		specularAmount = pow(max(dot(viewDir, reflectLight), 0.0), uSpecularShininess);
 	}
-	
-	vec4 specularComponent = texture(specularTexture, uvsEdit) * specularAmount  * uSpecularColor * uLightColor * uLightIntensity;
+
+	vec4 specularComponent = texture(specularTexture, uvs) * specularAmount * uSpecularColor * uPointLight.lightColor * uPointLight.lightIntensity * attenuation;
 
 	vec4 lightTotal = ambientComponent + diffuseComponent + specularComponent;
 
-	
-	fragColor = lightTotal * uColor;
-	
-	
+	return lightTotal;
+}
+
+vec4 DirectionalLightCal(vec2 uvs)
+{
+	// Ambient
+	vec4 ambientComponent = texture(diffuseTexture, uvs) * uAmbientColor * uAmbientIntensity;
+
+	// Diffuse
+	vec3 norm = normalize(normal);
+	vec3 lightDir = normalize(-uDirectionalLight.lightDirection);
+	float diffuseAmount = max(dot(norm, lightDir), 0.0);
+	vec4 diffuseComponent = texture(diffuseTexture, uvs) * diffuseAmount * uDirectionalLight.lightColor * uDirectionalLight.lightIntensity;
+
+	//Specular
+	// use if Phong model
+	vec3 reflectLight = reflect(-lightDir, norm);
+	vec3 viewDir = normalize(uViewPosition - fragPos);
+	vec3 halfwayDir = normalize(viewDir + lightDir);
+	float specularAmount = 0;
+	if (blinn)
+	{
+		specularAmount = pow(max(dot(normal, halfwayDir), 0.0), uSpecularShininess);
+	}
+	else
+	{
+		specularAmount = pow(max(dot(viewDir, reflectLight), 0.0), uSpecularShininess);
+	}
+
+	vec4 specularComponent = texture(specularTexture, uvs) * specularAmount * uSpecularColor * uDirectionalLight.lightColor * uDirectionalLight.lightIntensity;
+
+	vec4 lightTotal = ambientComponent + diffuseComponent + specularComponent;
+
+	return lightTotal;
+}
+
+void main()
+{
+
+	vec2 uvsEdit = vec2((uvs.x + uOffsetX) * uTileX, (uvs.y + uOffsetY) * uTileY);
+
+	vec4 pointLightResult = PointLightCalc(uvsEdit);
+
+	vec4 directionalLightResult = DirectionalLightCal(uvsEdit);
+
+	fragColor = (pointLightResult + directionalLightResult) * uColor;
 } 

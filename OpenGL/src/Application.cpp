@@ -45,19 +45,23 @@ ImVec4 clearColorEditor = ImVec4(initColor.x, initColor.y, initColor.z, initColo
 bool show_demo_window = true;
 bool show_another_window = false;
 
-// lighting
+// Global lighting
 float ambientLightIntensity = 0.1f;
 glm::vec4 ambientLightColor(0.3f, 0.82f, 0.74f, 1.0f);
 
+// Point Light
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
 float lightIntensity = 1.0f;
+float range = 4.0f;
 
-glm::vec4 specularColor(0.0f, 1.0f, 0.0f, 1.0f);
-float specularShininess = 64.0f;
+// Directiona Light
+glm::vec3 directionalLightDirection(-0.2f, -1.0f, -0.3f);
+glm::vec4 directionalLightColor(1.0f, 0.0f, 1.0f, 1.0f);
+float directionalLightIntensity = 0.1f;
 
+// Cube
 glm::vec3 cubePos(0.0f, 0.6f, 0.0f);
-
 
 //Shader uniforms
 ImVec4 u_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -67,6 +71,8 @@ float uTileX = 1.0f;
 float uTileY = 1.0f;
 bool blinn = true;
 
+glm::vec4 specularColor(0.5f, 0.5f, 0.5f, 1.0f);
+float specularShininess = 64.0f;
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
@@ -216,7 +222,7 @@ void RenderIMGUI()
 		ImGui::ColorEdit3("##ambientLightColor", (float*)&ambientLightColor);
 		ImGui::Text("Ambient light intensity");
 		ImGui::SameLine();
-		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity, 0.1f, 0.1f, 10.0f);
+		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity, 0.1f, 0.0f, 10.0f);
 		
 		ImGui::Dummy(ImVec2(0.0f, 10.0f));
 		ImGui::Text("POINT LIGHT");
@@ -226,10 +232,26 @@ void RenderIMGUI()
 		ImGui::ColorEdit3("##LightColor", (float*)&lightColor);
 		ImGui::Text("Position");
 		ImGui::SameLine();
-		ImGui::DragFloat3("##LightPosition", (float*)&lightPos);
+		ImGui::DragFloat3("##LightPosition", (float*)&lightPos, 0.1f);
 		ImGui::Text("Light intensity");
 		ImGui::SameLine();
 		ImGui::DragFloat("##lightIntensity", (float*)&lightIntensity, 0.1f, 0.1f, 10.0f);
+		ImGui::Text("Light Range");
+		ImGui::SameLine();
+		ImGui::DragFloat("##lightRange", (float*)&range, 0.1f, 0.0f, 1000.0f);
+
+		ImGui::Text("DIRECTIONAL LIGHT");
+		ImGui::Dummy(ImVec2(0.0f, 5.0f));
+		ImGui::Text("Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##directionalLightColor", (float*)&directionalLightColor);
+		ImGui::Text("Direction");
+		ImGui::SameLine();
+		ImGui::DragFloat3("##DiretionalLightDirection", (float*)&directionalLightDirection);
+		ImGui::Text("Light intensity");
+		ImGui::SameLine();
+		ImGui::DragFloat("##DirectionalLightIntensity", (float*)&directionalLightIntensity, 0.1f, 0.0f, 10.0f);
+		
 		
 		
 		ImGui::Dummy(ImVec2(0.0f, 20.0f));
@@ -480,15 +502,27 @@ int main(void)
 		shader.SetUniform1f("uTileY", uTileY);
 		shader.SetUniform1i("diffuseTexture", 0);
 		shader.SetUniform1i("specularTexture", 1);
+		shader.SetUniform4f("uSpecularColor", specularColor.x, specularColor.y, specularColor.z, specularColor.w);	
+		shader.SetUniform1f("uSpecularShininess", specularShininess);
 
+		// LIGHTS uniforms
 		shader.SetUniform4f("uAmbientColor", ambientLightColor.x, ambientLightColor.y, ambientLightColor.z, ambientLightColor.w);
 		shader.SetUniform1f("uAmbientIntensity", ambientLightIntensity);
 		
-		shader.SetUniform3f("uLightPosition", lightPos.x, lightPos.y, lightPos.z);
-		shader.SetUniform4f("uLightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
-		shader.SetUniform1f("uLightIntensity", lightIntensity);
-		shader.SetUniform4f("uSpecularColor", specularColor.x, specularColor.y, specularColor.z, specularColor.w);	
-		shader.SetUniform1f("uSpecularShininess", specularShininess);
+		// Directional
+		shader.SetUniform3f("uDirectionalLight.lightDirection", directionalLightDirection.x, directionalLightDirection.y, directionalLightDirection.z);
+		shader.SetUniform4f("uDirectionalLight.lightColor", directionalLightColor.x, directionalLightColor.y, directionalLightColor.z, directionalLightColor.w);
+		shader.SetUniform1f("uDirectionalLight.lightIntensity", directionalLightIntensity);
+
+		// Point
+		shader.SetUniform3f("uPointLight.lightPosition", lightPos.x, lightPos.y, lightPos.z);
+		shader.SetUniform4f("uPointLight.lightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
+		shader.SetUniform1f("uPointLight.lightIntensity", lightIntensity);
+
+		// Calculate constanta based on light range
+		shader.SetUniform3f("uPointLight.attenuationConstant", glm::vec3(1/(range * range), 2/range, range));
+		/////
+
 		shader.SetUniform3f("uViewPosition",camera.GetPosition());
 		
 		shader.SetUniformMatrix4("view", camera.GetViewMatrix());
@@ -499,6 +533,15 @@ int main(void)
 		// Normal matrix calculated in world space and passed as uniform to avoid recaculate in each pixel shader
 		glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
 		shader.SetUniformMatrix4("normalMatrix", normalMatrix);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		// Second cube
+		glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.9f, 2.0f));
+		model2 = glm::rotate(model2, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 1.0f));
+		shader.SetUniformMatrix4("model", model2);
+		// Normal matrix calculated in world space and passed as uniform to avoid recaculate in each pixel shader
+		glm::mat4 normalMatrix2 = glm::transpose(glm::inverse(model2));
+		shader.SetUniformMatrix4("normalMatrix", normalMatrix2);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		
