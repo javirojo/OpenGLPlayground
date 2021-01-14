@@ -46,19 +46,28 @@ bool show_demo_window = true;
 bool show_another_window = false;
 
 // Global lighting
-float ambientLightIntensity = 0.1f;
+float ambientLightIntensity = 0.02f;
 glm::vec4 ambientLightColor(0.3f, 0.82f, 0.74f, 1.0f);
 
 // Point Light
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
-glm::vec4 lightColor(1.0f, 1.0f, 1.0f, 1.0f);
-float lightIntensity = 1.0f;
-float range = 4.0f;
+glm::vec4 lightColor(0.56f, 0.57f, 0.97f, 1.0f);
+float lightIntensity = 2.2f;
+float range = 3.9f;
+
+// Spot Light
+glm::vec3 spotLightDirection(1.0f, 0.0f, 0.0f);
+glm::vec3 spotLightPosition(0.3f, 1.0f, 2.0f);
+glm::vec4 spotLightColor(0.0f, 1.0f, 0.0f, 1.0f);
+float spotLightIntensity = 4.0f;
+float spotLightRange = 4.0f;
+float spotLightOuterCutOff = 10.0f;
+float spotLightInnerCutOff = 8.0f;
 
 // Directiona Light
 glm::vec3 directionalLightDirection(-0.2f, -1.0f, -0.3f);
 glm::vec4 directionalLightColor(1.0f, 0.0f, 1.0f, 1.0f);
-float directionalLightIntensity = 0.1f;
+float directionalLightIntensity = 0.0f;
 
 // Cube
 glm::vec3 cubePos(0.0f, 0.6f, 0.0f);
@@ -222,7 +231,7 @@ void RenderIMGUI()
 		ImGui::ColorEdit3("##ambientLightColor", (float*)&ambientLightColor);
 		ImGui::Text("Ambient light intensity");
 		ImGui::SameLine();
-		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity, 0.1f, 0.0f, 10.0f);
+		ImGui::DragFloat("##ambientLightIntensity", (float*)&ambientLightIntensity, 0.01f, 0.0f, 10.0f);
 		
 		ImGui::Dummy(ImVec2(0.0f, 10.0f));
 		ImGui::Text("POINT LIGHT");
@@ -235,10 +244,35 @@ void RenderIMGUI()
 		ImGui::DragFloat3("##LightPosition", (float*)&lightPos, 0.1f);
 		ImGui::Text("Light intensity");
 		ImGui::SameLine();
-		ImGui::DragFloat("##lightIntensity", (float*)&lightIntensity, 0.1f, 0.1f, 10.0f);
+		ImGui::DragFloat("##lightIntensity", (float*)&lightIntensity, 0.1f, 0.00f, 10.0f);
 		ImGui::Text("Light Range");
 		ImGui::SameLine();
-		ImGui::DragFloat("##lightRange", (float*)&range, 0.1f, 0.0f, 1000.0f);
+		ImGui::DragFloat("##lightRange", (float*)&range, 0.1f, 0.01f, 1000.0f);
+
+		ImGui::Dummy(ImVec2(0.0f, 10.0f));
+		ImGui::Text("SPOT LIGHT");
+		ImGui::Dummy(ImVec2(0.0f, 5.0f));
+		ImGui::Text("Color");
+		ImGui::SameLine();
+		ImGui::ColorEdit3("##SpotLightColor", (float*)&spotLightColor);
+		ImGui::Text("Position");
+		ImGui::SameLine();
+		ImGui::DragFloat3("##SpotLightPosition", (float*)&spotLightPosition, 0.1f);
+		ImGui::Text("Direction");
+		ImGui::SameLine();
+		ImGui::DragFloat3("##SpotLightDirection", (float*)&spotLightDirection);
+		ImGui::Text("Light intensity");
+		ImGui::SameLine();
+		ImGui::DragFloat("##SpotLightIntensity", (float*)&spotLightIntensity, 0.1f, 0.0f, 10.0f);
+		ImGui::Text("Light Range");
+		ImGui::SameLine();
+		ImGui::DragFloat("##SpotLightRange", (float*)&spotLightRange, 0.1f, 0.01f, 1000.0f);
+		ImGui::Text("Outer CutOff");
+		ImGui::SameLine();
+		ImGui::DragFloat("##Outer CutOff", (float*)&spotLightOuterCutOff, 1.0f, 0.0f, 180.0f);
+		ImGui::Text("Inner CutOff");
+		ImGui::SameLine();
+		ImGui::DragFloat("##InnerCutOff", (float*)&spotLightInnerCutOff, 1.0f, 0.0f, 180.0f);
 
 		ImGui::Text("DIRECTIONAL LIGHT");
 		ImGui::Dummy(ImVec2(0.0f, 5.0f));
@@ -518,9 +552,18 @@ int main(void)
 		shader.SetUniform3f("uPointLight.lightPosition", lightPos.x, lightPos.y, lightPos.z);
 		shader.SetUniform4f("uPointLight.lightColor", lightColor.x, lightColor.y, lightColor.z, lightColor.w);
 		shader.SetUniform1f("uPointLight.lightIntensity", lightIntensity);
-
 		// Calculate constanta based on light range
-		shader.SetUniform3f("uPointLight.attenuationConstant", glm::vec3(1/(range * range), 2/range, range));
+		shader.SetUniform3f("uPointLight.attenuationConstant", glm::vec3(1 / (range * range), 2 / range, range));
+
+		//Spot
+		shader.SetUniform3f("uSpotLight.lightDirection", spotLightDirection.x, spotLightDirection.y, spotLightDirection.z);
+		shader.SetUniform3f("uSpotLight.lightPosition", spotLightPosition.x, spotLightPosition.y, spotLightPosition.z);
+		shader.SetUniform4f("uSpotLight.lightColor", spotLightColor.x, spotLightColor.y, spotLightColor.z, spotLightColor.w);
+		shader.SetUniform1f("uSpotLight.lightIntensity", spotLightIntensity);
+		//TODO: Inner Cutoff cannot be greater than outer
+		shader.SetUniform2f("uSpotLight.cutOff", glm::cos(glm::radians(spotLightOuterCutOff)), glm::cos(glm::radians(spotLightInnerCutOff)));
+		// Calculate constanta based on light range
+		shader.SetUniform3f("uSpotLight.attenuationConstant", glm::vec3(1/(spotLightRange * spotLightRange), 2/ spotLightRange, spotLightRange));
 		/////
 
 		shader.SetUniform3f("uViewPosition",camera.GetPosition());
@@ -571,7 +614,7 @@ int main(void)
 		ligthModel = glm::scale(ligthModel, glm::vec3(0.2f));
 		lightCasterShader.SetUniformMatrix4("model", ligthModel);
 		
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDrawArrays(GL_TRIANGLES, 0, 36);
 		
 		// Always Render ImGUi at last in order to render in front
 		RenderIMGUI();
